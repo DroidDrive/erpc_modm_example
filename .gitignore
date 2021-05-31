@@ -1,0 +1,6 @@
+modm/
+build/
+SConstruct
+
+*.gdb
+*.log

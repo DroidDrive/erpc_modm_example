@@ -1,0 +1,20 @@
+<library>
+  <repositories>
+    <repository>
+      <path>${HOME}/gitclones/modm/repo.lb</path>
+    </repository>
+  </repositories>
+
+  <extends>modm:nucleo-f767zi</extends>
+  <options>
+    <option name="modm:build:build.path">build/nucleo-f767zi/freertos_modm</option>
+  </options>
+  <modules>
+    <module>modm:build:scons</module>
+    <module>modm:processing:rtos</module>
+    <module>modm:platform:heap</module>
+    
+    <module>modm:erpc</module>
+
+  </modules>
+</library>
