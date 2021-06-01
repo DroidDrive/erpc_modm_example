@@ -33,9 +33,6 @@ using namespace modm::platform;
 #include "erpc_client_setup.h"
 #include "erpc_fifo_transport.h"
 
-#include "utils/RingBuffer.hpp"
-
-
 template<class T>
 class IOBufs{
 public:
@@ -49,7 +46,8 @@ private:
 	T* sendBuf_;
 };
 
-using myContainer_t = std::queue<uint8_t>;
+//using myContainer_t = std::queue<uint8_t>;
+using myContainer_t = erpc::RingBuffer<uint8_t, 512>;
 
 /// ###############################################################
 /// Services
@@ -94,7 +92,7 @@ class RpcServer
 {
 public:
 	static constexpr char name[] { "RpcServer" };
-
+    static bool serverUp;
 public:
 	static void run(void* params)
 	{
@@ -121,13 +119,19 @@ public:
         erpc_add_service_to_server(service);
 
         MODM_LOG_INFO << "[Server] Spinning ..." << modm::endl;
+        RpcServer::serverUp = true;
         while(true){		
             auto status = erpc_server_poll();
+            if(status){
+                MODM_LOG_ERROR << "[Server] Poll() returned status '" << (int) status << "'!" << modm::endl; 
+            }
 			vTaskDelay( 10 * MILLISECONDS );        
 		}
         MODM_LOG_INFO << "[Server] END ..." << modm::endl;
-}
+    }
 };
+bool RpcServer::serverUp = false;
+
 
 /// ###############################################################
 /// Client
@@ -147,6 +151,10 @@ public:
 public:
 	static void run(void* params)
 	{
+        MODM_LOG_INFO << "[Client] Waiting for Server ..." << modm::endl;
+        while(!RpcServer::serverUp){
+        }
+
         MODM_LOG_INFO << "[Client] Starting ..." << modm::endl;
 
 		IOBufs<myContainer_t>* buffers =  static_cast<IOBufs<myContainer_t>*>(params);
@@ -174,7 +182,7 @@ public:
                 matrix2[i][j] = j+1;
             }
         }
-    
+
         while(true)
         {
 
@@ -249,7 +257,7 @@ int main()
 {
 	Board::initialize();
 
-	xTaskCreate(RpcServer::run, RpcServer::name, 12000, (void*) &serverBuffers, 2, 0);
+	xTaskCreate(RpcServer::run, RpcServer::name, 12000, (void*) &serverBuffers, 4, 0);
 	xTaskCreate(RpcClient::run, RpcClient::name, 12000, (void*) &clientBuffers, 3, 0);
 
 	modm::rtos::Scheduler::schedule();

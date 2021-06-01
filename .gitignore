@@ -4,3 +4,4 @@ SConstruct
 
 *.gdb
 *.log
+*.dblite
