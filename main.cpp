@@ -16,38 +16,11 @@
 
 using namespace modm::platform;
 
-/// ###################################
-/// Server includes 
-/// ###################################
-/// include generated idl stuff for services
-#include "erpc_services/matrix/matrix_multiply_server.h"
-/// include erpc base stuff
-#include <erpc_server_setup.h>
-#include <erpc_fifo_transport.h>
-/// ###################################
-/// Client includes 
-/// ###################################
-/// include generated idl stuff for services
-#include "erpc_services/matrix/matrix_multiply.h"
-/// include erpc base stuff
-#include "erpc_client_setup.h"
-#include "erpc_fifo_transport.h"
+#include <utils/IoBufPack.hpp>
+#include <tasks/RpcServer.hpp>
+#include <tasks/RpcClient.hpp>
 
-template<class T>
-class IOBufs{
-public:
-	IOBufs(T* in, T* out)
-	: receiveBuf_{in}, sendBuf_{out}{}
-public:
-	T* getReceiveBuffer(){return receiveBuf_;}
-	T* getSendBuffer(){return sendBuf_;}
-private:
-	T* receiveBuf_;
-	T* sendBuf_;
-};
-
-//using myContainer_t = std::queue<uint8_t>;
-using myContainer_t = erpc::RingBuffer<uint8_t, 512>;
+using myContainer_t = erpc::RingBuffer<uint8_t, 1024>;
 
 /// ###############################################################
 /// Services
@@ -85,180 +58,46 @@ void services::erpcMatrixMultiply(Matrix matrix1, Matrix matrix2, Matrix result_
    //MODM_LOG_INFO << "Service erpcMatrixMultiply() end!" << modm::endl;
 }
 
-/// ###############################################################
-/// Server
-/// ###############################################################
-class RpcServer
-{
-public:
-	static constexpr char name[] { "RpcServer" };
-    static bool serverUp;
-public:
-	static void run(void* params)
-	{
-		MODM_LOG_INFO << "[Server] Starting ..." << modm::endl;
 
-		IOBufs<myContainer_t>* buffers =  static_cast<IOBufs<myContainer_t>*>(params);
-
-        /* Init eRPC server environment */
-        /* transport layer initialization */
-        erpc_transport_t s_transport = erpc_transport_fifo_init(buffers->getReceiveBuffer() , buffers->getSendBuffer());
-
-        /* MessageBufferFactory initialization */
-        erpc_mbf_t s_message_buffer_factory = erpc_mbf_static_fixed_init<2, 256>();
-
-        MODM_LOG_INFO << "[Server] Initializing server ..." << modm::endl;
-
-        /* eRPC server side initialization */
-        erpc_server_init(s_transport, s_message_buffer_factory);
-
-        MODM_LOG_INFO << "[Server] Adding services ..." << modm::endl;
-
-        /* connect generated service into server, look into erpc_matrix_multiply_server.h */
-        erpc_service_t service = create_MatrixMultiplyService_service();
-        erpc_add_service_to_server(service);
-
-        MODM_LOG_INFO << "[Server] Spinning ..." << modm::endl;
-        RpcServer::serverUp = true;
-        while(true){		
-            auto status = erpc_server_poll();
-            if(status){
-                MODM_LOG_ERROR << "[Server] Poll() returned status '" << (int) status << "'!" << modm::endl; 
-            }
-			vTaskDelay( 10 * MILLISECONDS );        
-		}
-        MODM_LOG_INFO << "[Server] END ..." << modm::endl;
-    }
-};
-bool RpcServer::serverUp = false;
-
-
-/// ###############################################################
-/// Client
-/// ###############################################################
-static bool latestClientError = false;
-void clientErrorCallback(erpc_status_t err, uint32_t functionID){
-    latestClientError = err;
-    if(err != 0)
-        MODM_LOG_INFO << "[ERROR] " << err << " in function " << functionID << modm::endl; 
-}
-
-class RpcClient
-{
-public:
-	static constexpr char name[] { "RpcClient" };
-
-public:
-	static void run(void* params)
-	{
-        MODM_LOG_INFO << "[Client] Waiting for Server ..." << modm::endl;
-        while(!RpcServer::serverUp){
-        }
-
-        MODM_LOG_INFO << "[Client] Starting ..." << modm::endl;
-
-		IOBufs<myContainer_t>* buffers =  static_cast<IOBufs<myContainer_t>*>(params);
-
-        /* Matrices definitions */
-        Matrix matrix1, matrix2, result = {{0}};
-
-        /* Init eRPC client environment */
-        /* transport layer initialization */
-        erpc_transport_t c_transport = erpc_transport_fifo_init(buffers->getReceiveBuffer(), buffers->getSendBuffer());
-
-        /* MessageBufferFactory initialization */
-        erpc_mbf_t c_message_buffer_factory = erpc_mbf_static_fixed_init<2, 256>();
-
-        MODM_LOG_INFO << "[Client] Initializing transport ..." << modm::endl;
-
-        /* eRPC client side initialization */
-        erpc_client_init(c_transport, c_message_buffer_factory);
-        erpc_client_set_error_handler(clientErrorCallback);
-        
-        /* other code like init matrix1 and matrix2 values */
-        for(int i = 0; i < 5; i++){
-            for(int j = 0; j < 5; j++){
-                matrix1[i][j] = j+1;
-                matrix2[i][j] = j+1;
-            }
-        }
-
-        while(true)
-        {
-
-            MODM_LOG_INFO << "[Client] Calling service ..." << modm::endl;
-            /* call eRPC functions */
-            remote::erpcMatrixMultiplyX(matrix1, matrix2, result);
-            if(latestClientError == 0)
-            {
-                MODM_LOG_INFO << "\n   = \n\n";
-                /* other code like print result matrix */
-                for(int i = 0; i < 5; i++){
-                    for(int j = 0; j < 5; j++){
-                        MODM_LOG_INFO << result[i][j] << " ";
-                        /// change input matrix slightly
-                        matrix1[i][j] += 1;
-                    }
-                    MODM_LOG_INFO << "; " << modm::endl;
-                }
-            }
-            MODM_LOG_INFO << "[Client] Done ..." << modm::endl; 
-			vTaskDelay( 1000 * MILLISECONDS );        
-        }
-        MODM_LOG_INFO << "[Client] END ..." << modm::endl; 
-}
-};
 
 // ----------------------------------------------------------------------------
 template <typename Gpio, int SleepTime>
 class P: modm::rtos::Thread
 {
 public:
-	P(char c): Thread(2, 1<<11), c(c) {
-	}
-
+	P(): Thread(2, 1<<11) {}
 	void run()
 	{
 		Gpio::setOutput();
 		while (true)
 		{
 			sleep(SleepTime * MILLISECONDS);
-
 			Gpio::toggle();
-			{
+            {
 				static modm::rtos::Mutex lm;
 				modm::rtos::MutexGuard m(lm);
-				//MODM_LOG_INFO << char(i + c);
 			}
-			i = (i+1)%10;
-			a *= 3.141f;
 		}
 	}
-private:
-	char c;
-	uint8_t i = 0;
-	volatile float a = 10.f;
 };
-
-P< Board::LedRed,   260      > p1('0');
-P< Board::LedGreen, 260 + 10 > p2('a');
-P< Board::LedBlue,  260 + 20 > p3('A');
-
+P< Board::LedRed,   260      > p1();
+P< Board::LedGreen, 260 + 10 > p2();
+P< Board::LedBlue,  260 + 20 > p3();
 
 // ----------------------------------------------------------------------------
 // pushing into here wont allocate stuff properly?
 static myContainer_t buffer1;
 static myContainer_t buffer2;
 
-IOBufs<myContainer_t> serverBuffers(&buffer1, &buffer2);
-IOBufs<myContainer_t> clientBuffers(&buffer2, &buffer1);
+IoBufPack<myContainer_t> serverBuffers(&buffer1, &buffer2);
+IoBufPack<myContainer_t> clientBuffers(&buffer2, &buffer1);
 
 int main()
 {
 	Board::initialize();
 
-	xTaskCreate(RpcServer::run, RpcServer::name, 12000, (void*) &serverBuffers, 4, 0);
-	xTaskCreate(RpcClient::run, RpcClient::name, 12000, (void*) &clientBuffers, 3, 0);
+	xTaskCreate(RpcServer<myContainer_t>::run, RpcServer<myContainer_t>::name, 12000, (void*) &serverBuffers, 4, 0);
+	xTaskCreate(RpcClient<myContainer_t>::run, RpcClient<myContainer_t>::name, 12000, (void*) &clientBuffers, 3, 0);
 
 	modm::rtos::Scheduler::schedule();
 	return 0;
