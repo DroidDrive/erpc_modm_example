@@ -8,6 +8,8 @@
 #include <erpc_services/matrix/matrix_multiply.h>
 
 /// include transport used
+#include <erpc/erpc_c/setup/erpc_transport_setup_addons.h>
+#include <erpc/erpc_c/setup/erpc_mbf_setup_addons.h>
 #include <erpc/erpc_c/transports/erpc_fifo_transport.h>
 
 #include <modm/board.hpp>

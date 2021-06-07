@@ -16,6 +16,8 @@
 
 using namespace modm::platform;
 
+#include <erpc/erpc_c/transports/erpc_fifo_transport.h>
+
 #include <utils/IoBufPack.hpp>
 #include <tasks/RpcServer.hpp>
 #include <tasks/RpcClient.hpp>
