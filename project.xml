@@ -11,7 +11,9 @@
   </options>
   <modules>
     <module>modm:build:scons</module>
-    <module>modm:processing:rtos</module>
+    <module>modm:processing:protothread</module>
+    <module>modm:processing:resumable</module>
+    <module>modm:processing:timer</module>
     <module>modm:platform:heap</module>
     
     <module>modm:erpc</module>

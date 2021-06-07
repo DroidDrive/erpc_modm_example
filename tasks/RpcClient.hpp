@@ -11,7 +11,6 @@
 #include <erpc/erpc_c/transports/erpc_fifo_transport.h>
 
 #include <modm/board.hpp>
-#include <modm/processing/rtos.hpp>
 
 #include <utils/IoBufPack.hpp>
 
@@ -61,7 +60,6 @@ public:
 
 		while(true)
 		{
-
 			MODM_LOG_INFO << "[Client] Calling service() ..." << modm::endl;
 			/* call eRPC functions */
 			remote::erpcMatrixMultiplyX(matrix1, matrix2, result);
