@@ -14,25 +14,14 @@ public:
     run()
     {
         PT_BEGIN();
-
-        // set everything up
         Led1::setOutput();
         Led2::setOutput();
-        Led1::set();
-        Led2::set();
-        while (true)
-        {
+        while (true){
             timeout.restart(100ms);
-            Led1::set();
-            Led2::reset();
             PT_WAIT_UNTIL(timeout.isExpired());
-
-            timeout.restart(200ms);
-            Led1::reset();
-            Led2::set();
-            PT_WAIT_UNTIL(timeout.isExpired());
+            Led1::toggle();
+            Led2::toggle();
         }
-
         PT_END();
     }
 

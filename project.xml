@@ -17,6 +17,5 @@
     <module>modm:platform:heap</module>
     
     <module>modm:erpc</module>
-
   </modules>
 </library>
