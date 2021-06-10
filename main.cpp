@@ -71,7 +71,6 @@ int main()
 {
 	Board::initialize();
 
-	//xTaskCreate(RpcClient::run<myContainer_t>, RpcClient<myContainer_t>::name, 12000, (void*) &clientBuffers, 3, 0);
     LedTask<Board::LedGreen, 260 + 10> led1;
     LedTask<Board::LedBlue,  260 + 20> led2;
     RpcClient<myContainer_t> client(clientBuffers);
