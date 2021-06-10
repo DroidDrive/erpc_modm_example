@@ -10,9 +10,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 // ----------------------------------------------------------------------------
-
 #include <modm/board.hpp>
-#include <modm/processing/rtos.hpp>
 
 using namespace modm::platform;
 
@@ -21,6 +19,7 @@ using namespace modm::platform;
 #include <utils/IoBufPack.hpp>
 #include <tasks/RpcServer.hpp>
 #include <tasks/RpcClient.hpp>
+#include <tasks/LedTask.hpp>
 
 using myContainer_t = erpc::RingBuffer<uint8_t, 1024>;
 
@@ -60,32 +59,6 @@ void services::erpcMatrixMultiply(Matrix matrix1, Matrix matrix2, Matrix result_
    //MODM_LOG_INFO << "Service erpcMatrixMultiply() end!" << modm::endl;
 }
 
-
-
-// ----------------------------------------------------------------------------
-template <typename Gpio, int SleepTime>
-class P: modm::rtos::Thread
-{
-public:
-	P(): Thread(2, 1<<11) {}
-	void run()
-	{
-		Gpio::setOutput();
-		while (true)
-		{
-			sleep(SleepTime * MILLISECONDS);
-			Gpio::toggle();
-            {
-				static modm::rtos::Mutex lm;
-				modm::rtos::MutexGuard m(lm);
-			}
-		}
-	}
-};
-P< Board::LedRed,   260      > p1();
-P< Board::LedGreen, 260 + 10 > p2();
-P< Board::LedBlue,  260 + 20 > p3();
-
 // ----------------------------------------------------------------------------
 // pushing into here wont allocate stuff properly?
 static myContainer_t buffer1;
@@ -98,8 +71,11 @@ int main()
 {
 	Board::initialize();
 
-	xTaskCreate(RpcServer<myContainer_t>::run, RpcServer<myContainer_t>::name, 12000, (void*) &serverBuffers, 4, 0);
-	xTaskCreate(RpcClient<myContainer_t>::run, RpcClient<myContainer_t>::name, 12000, (void*) &clientBuffers, 3, 0);
+	//xTaskCreate(RpcClient::run<myContainer_t>, RpcClient<myContainer_t>::name, 12000, (void*) &clientBuffers, 3, 0);
+    LedTask<Board::LedGreen, 260 + 10> led1;
+    LedTask<Board::LedBlue,  260 + 20> led2;
+    RpcClient<myContainer_t> client(clientBuffers);
+    RpcServer<myContainer_t> server(serverBuffers);
 
 	modm::rtos::Scheduler::schedule();
 	return 0;

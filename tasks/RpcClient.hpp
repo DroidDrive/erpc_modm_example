@@ -1,7 +1,5 @@
 #pragma once
 
-#include <tasks/RpcServer.hpp>
-
 /// include erpc base stuff
 #include <erpc/erpc_c/setup/erpc_client_setup.h>
 /// include generated idl stuff for services
@@ -10,39 +8,43 @@
 /// include transport used
 #include <erpc/erpc_c/setup/erpc_transport_setup_addons.h>
 #include <erpc/erpc_c/setup/erpc_mbf_setup_addons.h>
-#include <erpc/erpc_c/transports/erpc_fifo_transport.h>
+#include <erpc/erpc_c/transports/erpc_modm_device_transport.h>
 
 #include <modm/board.hpp>
 #include <modm/processing/rtos.hpp>
 
+#include <utils/Task.hpp>
 #include <utils/IoBufPack.hpp>
 
 /// ###################################
 /// Client
 /// ###################################
 template<class BUFFER>
-class RpcClient
+class RpcClient : public ModmTask
 {
 public:
-	static constexpr char name[] { "RpcClient" };
-	static bool latestClientError;
-public:
-	static void run(void* params)
+    RpcClient(IoBufPack<BUFFER> buffers) : ModmTask("RpcClient", 5)
+    , buffers_(buffers)
+    {}
+    ~RpcClient() 
+	{}
+private:
+    void task() final
 	{
-		MODM_LOG_INFO << "[Client] Waiting for Server ..." << modm::endl;
-		while(!RpcServer<BUFFER>::serverUp){
-		}
-
+		// MODM_LOG_INFO << "[Client] Waiting for Server ..." << modm::endl;
+		// while(!RpcServer::serverUp){
+		// 	// ...
+		// }s
 		MODM_LOG_INFO << "[Client] Starting ..." << modm::endl;
-
-		IoBufPack<BUFFER>* buffers =  static_cast<IoBufPack<BUFFER>*>(params);
 
 		/* Matrices definitions */
 		Matrix matrix1, matrix2, result = {{0}};
 
-		/* Init eRPC client environment */
-		/* transport layer initialization */
-		erpc_transport_t c_transport = erpc_transport_fifo_init(buffers->getReceiveBuffer(), buffers->getSendBuffer());
+		FifoDeviceWrapper<BUFFER> device(buffers_);
+
+        /* Init eRPC server environment */
+        /* transport layer initialization */
+        erpc_transport_t c_transport = erpc_transport_modm_device_init(&device);
 
 		/* MessageBufferFactory initialization */
 		erpc_mbf_t c_message_buffer_factory = erpc_mbf_static_fixed_init<2, 256>();
@@ -63,13 +65,12 @@ public:
 
 		while(true)
 		{
-
 			MODM_LOG_INFO << "[Client] Calling service() ..." << modm::endl;
 			/* call eRPC functions */
 			remote::erpcMatrixMultiplyX(matrix1, matrix2, result);
 			MODM_LOG_INFO << "[Client] Service called() ..." << modm::endl;
 
-			if(latestClientError == 0)
+			if(RpcClient<BUFFER>::latestClientError == 0)
 			{
 				MODM_LOG_INFO << "\n   = \n\n";
 				/* other code like print result matrix */
@@ -89,13 +90,14 @@ public:
 	}
 
 	static void clientErrorCallback(erpc_status_t err, uint32_t functionID){
-		latestClientError = err;
+		RpcClient<BUFFER>::latestClientError = err;
 		if(err != 0){
-			MODM_LOG_INFO << "[ERROR] " << err << " in function " << functionID << modm::endl; 
+			MODM_LOG_INFO << "[Client] Error '" << err << "' in function '" << functionID << "'" << modm::endl; 
 		}
 	}
+
+public:
+	inline static bool latestClientError = 0;
+protected:
+	IoBufPack<BUFFER> buffers_;
 };
-
-
-template<class BUFFER>
-inline bool RpcClient<BUFFER>::latestClientError = false;

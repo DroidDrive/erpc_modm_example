@@ -10,32 +10,36 @@
 /// include transport used
 #include <erpc/erpc_c/setup/erpc_transport_setup_addons.h>
 #include <erpc/erpc_c/setup/erpc_mbf_setup_addons.h>
-#include <erpc/erpc_c/transports/erpc_fifo_transport.h>
+#include <erpc/erpc_c/transports/erpc_modm_device_transport.h>
 
 #include <modm/board.hpp>
-#include <modm/processing/rtos.hpp>
 
+#include <utils/Task.hpp>
 #include <utils/IoBufPack.hpp>
+#include <utils/FifoDeviceWrapper.hpp>
 /// ###############################################################
 /// Server
 /// ###############################################################
 template<class BUFFER>
-class RpcServer
+class RpcServer : public ModmTask
 {
 public:
-	static constexpr char name[] { "RpcServer" };
-    static bool serverUp;
-public:
-	static void run(void* params)
-	{
-		MODM_LOG_INFO << "[Server] Starting ..." << modm::endl;
+    RpcServer(IoBufPack<BUFFER> buffers) : ModmTask("RpcServer", 10)
+    , buffers_(buffers)
+    {}
+    ~RpcServer()
+    {}
+private:
+    void task() final
+    {
+        MODM_LOG_INFO << "[Server] Starting ..." << modm::endl;
 
-		IoBufPack<BUFFER>* buffers =  static_cast<IoBufPack<BUFFER>*>(params);
+        FifoDeviceWrapper<BUFFER> device(buffers_);
 
         /* Init eRPC server environment */
         /* transport layer initialization */
-        erpc_transport_t s_transport = erpc_transport_fifo_init(buffers->getReceiveBuffer() , buffers->getSendBuffer());
-
+        erpc_transport_t s_transport = erpc_transport_modm_device_init(&device);
+        
         /* MessageBufferFactory initialization */
         erpc_mbf_t s_message_buffer_factory = erpc_mbf_static_fixed_init<2, 256>();
 
@@ -51,17 +55,20 @@ public:
         erpc_add_service_to_server(service);
 
         MODM_LOG_INFO << "[Server] Spinning ..." << modm::endl;
-        RpcServer::serverUp = true;
-        while(true){		
+        serverUp = true;
+        while(true){	
             auto status = erpc_server_poll();
             if(status){
                 MODM_LOG_ERROR << "[Server] Poll() returned status '" << (int) status << "'!" << modm::endl; 
             }
-			vTaskDelay( 10 * MILLISECONDS );        
+			sleep(10 * MILLISECONDS);        
 		}
         MODM_LOG_INFO << "[Server] END ..." << modm::endl;
     }
+public:
+    bool serverUp = false;
+protected:
+    IoBufPack<BUFFER> buffers_;
 };
 
-template<class BUFFER>
-inline bool RpcServer<BUFFER>::serverUp = false;
+
