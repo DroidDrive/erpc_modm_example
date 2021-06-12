@@ -22,7 +22,7 @@ This example utilizes the modm/erpc module ([from this modm fork](https://github
   * FreeRTOS configuration file which is automagically included by modm
 * erpc_services
   * containing generated messaging files using erpcgen (can be installed via installing erpc)
-  * for detailed explanations on how to use the erpc IDL [click here]/https://github.com/EmbeddedRPC/erpc/wiki
+  * for detailed explanations on how to use the erpc IDL [click here](https://github.com/EmbeddedRPC/erpc/wiki)
 * tasks/
   * directory containing classes for all the freertos tasks
 * utils/
