@@ -6,7 +6,6 @@
 
 #include <utils/IoBufPack.hpp>
 
-
 template<class BUFFER, uint16_t TimeoutUsRx = 1000>
 class FifoDeviceWrapper : public Device
 {
@@ -70,7 +69,6 @@ public:
     }
 
 protected:
-	modm::ShortPreciseTimeout timeout;
     IoBufPack<BUFFER> buffers_;
 };
 
